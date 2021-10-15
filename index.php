@@ -1,32 +1,38 @@
 <?php
 require_once './connec.php';
-
 $pdo = new \PDO(DSN, USER, PASS);
-
-$query = "SELECT * FROM friend";
-$statement = $pdo->query($query);
-$friends = $statement->fetchAll();
-
-$pdo->exec($query);
-
+$data = array_map('trim', $_POST);
+$data = array_map('htmlentities', $data);
 $errors = [];
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstname = trim($_POST['firstname']);
-    $lastname = trim($_POST['lastname']);
-    $friend = array_map('trim', $_POST);
-
-    $maxFirstnameLength = 45;
-    if (strlen($friend['firstname']) > $maxFirstnameLength) {
-        $errors[] = 'Le firstname doit faire moins de' . $maxfirstnameLength;
+if (!empty($data)) {
+    if (empty($data['firstname'])) {
+        $errors['noFirstname'] = 'Le prénom doit être remplis';
     }
-    $maxlastnameLength = 45;
-    if (strlen($friend['lastname']) > $maxlastnameLength) {
-        $errors[] = 'Le lastname doit faire moins de' . $maxlastnameLength;
+
+    if (strlen($data['firstname']) >= 45) {
+        $errors['longFirstname'] = 'Le prénom doit faire moins de 45 charactères';
+    }
+
+    if (empty($data['lastname'])) {
+        $errors['noLastname'] = 'Le nom doit être remplis';
+    }
+
+    if (strlen($data['lastname']) >= 45) {
+        $errors['longLastname'] = 'Le nom doit faire moins de 45 charactères';
     }
 
     if (empty($errors)) {
-        $query = "INSERT INTO friend (firstname, lastname) VALUES ('$firstname', '$lastname')";
+        $firstname = $data['firstname'];
+        $lastname = $data['lastname'];
+
+        $query = 'INSERT INTO  friend (firstname, lastname) VALUES(:firstname, :lastname)';
+        $statement = $pdo->prepare($query);
+
+        $statement->bindValue(':firstname', $firstname, \PDO::PARAM_STR);
+        $statement->bindValue(':lastname', $lastname, \PDO::PARAM_STR);
+
+        $statement->execute();
+
         header('Location: index.php');
     }
 }
@@ -40,29 +46,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>PDO quest</title>
 </head>
 
 <body>
-
-    <h1>List of Friends</h1>
+    <?php
+    $query = 'SELECT * FROM friend';
+    $statement = $pdo->query($query);
+    $friends = $statement->fetchAll(PDO::FETCH_ASSOC);
+    ?>
 
     <ul>
         <?php foreach ($friends as $friend) : ?>
-            <li>
-                <?= $friend['firstname'] . " " . $friend['lastname']  ?>
-            </li>
+            <li><?= $friend['firstname'] . ' ' . $friend['lastname'] ?></li>
         <?php endforeach ?>
     </ul>
 
-    <form action="" method="POST" novalidate>
-        <label for="firstname">Firstname</label>
-        <input type="text" name="firstname" id="firstname" required>
-        <label for="lastname">Lastname</label>
-        <input type="text" name="lastname" id="lastname" required>
+    <form action="" method="POST">
+        <ul>
+            <?php foreach ($errors as $error) : ?>
+                <li><?= $error ?></li>
+            <?php endforeach ?>
+        </ul>
+        <label for="firstname">Prénom</label>
+        <input type="text" name="firstname" id="firstname" placeholder="Firstname">
+        <label for="lastname">Nom</label>
+        <input type="text" name="lastname" id="lastname" placeholder="Lastname">
         <button>Envoyer</button>
     </form>
-
 </body>
 
 </html>
